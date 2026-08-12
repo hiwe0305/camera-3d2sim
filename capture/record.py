@@ -1,11 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable
 import numpy as np
-
-try:
-    import imageio.v3 as iio
-except ImportError:  # pragma: no cover
-    iio = None
+import imageio.v3 as iio
 
 
 @dataclass
