@@ -1,7 +1,8 @@
 # Pipeline: RealSense D435 → 3D Gaussian Splatting → Isaac Sim
 
-Status: Draft — chờ user review
+Status: Approved
 Ngày: 2026-08-12
+Isaac Sim version: 6.0.1 (server/workstation)
 
 ## 1. Mục tiêu & bối cảnh
 
@@ -33,11 +34,27 @@ Rủi ro lớn nhất ban đầu tưởng là "Isaac Sim có hỗ trợ Gaussian
 trước khi đầu tư công sức vào SLAM.
 
 Việc cần làm: tải một file `.ply` Gaussian Splat mẫu công khai bất kỳ → chạy `ply_to_usd` (công cụ
-3DGRUT) → mở `.usdz` kết quả trong Isaac Sim (yêu cầu bản ≥6.0) → xác nhận render đúng, không gặp
-lỗi "layered artifact" đã được báo cáo trên forum NVIDIA.
+3DGRUT) → mở `.usdz` kết quả trong Isaac Sim 6.0.1 (máy đã xác định) → xác nhận render đúng, không
+gặp lỗi "layered artifact" đã được báo cáo trên forum NVIDIA.
 
 **Đây là cổng go/no-go**: nếu thất bại, cần có phương án dự phòng (convert splat sang textured mesh,
 hoặc dùng point cloud renderer) trước khi tiếp tục các bước sau. Không đi tiếp nếu Phase 0 chưa pass.
+
+### Thứ tự triển khai (implementation staging)
+
+Laptop (có camera D435 gắn sẵn) và máy chạy Isaac Sim 6.0.1 là hai máy khác nhau, chưa nối mạng làm
+việc chung ngay từ đầu. Vì vậy slice triển khai đầu tiên là **toàn bộ phần chạy được độc lập trên
+laptop, không phụ thuộc việc có truy cập server/Isaac Sim hay không**:
+
+1. `capture/` — RTAB-Map + pyrealsense2, ghi theo cấu trúc `captures/YYYY-MM-DD_vNN/raw/` + `slam/`.
+2. `align_verify/` — gravity alignment, tính `T_world_from_slam`/`T_anchor_from_world`, chạy Gate A,
+   ghi `manifest.json`.
+3. `ingest/` (phần đóng gói) — chuẩn hoá session thành cấu trúc chuẩn + `manifest.json` đầy đủ, sẵn
+   sàng để rsync sang server bất cứ khi nào có kết nối; phần rsync thực tế có thể chạy tay lúc đầu.
+4. `_meta/scripts/qgate.py` (phần Gate A) + `gates.yaml` + `sop_capture.md` khởi tạo.
+
+Phase 0 (spike Isaac Sim) và các bước 4-6 phía server (train GSplat, nav geometry, Isaac Sim import)
+triển khai ở slice kế tiếp, khi có quyền truy cập máy chạy Isaac Sim 6.0.1.
 
 ### Pipeline chính (6 bước, sau khi Phase 0 pass)
 
