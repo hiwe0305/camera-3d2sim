@@ -5,3 +5,4 @@ scipy
 pyyaml
 pupil-apriltags
 pytest
+imageio
