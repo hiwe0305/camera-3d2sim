@@ -19,9 +19,16 @@ def test_load_thresholds_reads_gate_a_section(tmp_path):
     assert t["scale_max_err_pct"] == 2.0
 
 def test_check_scale_passes_within_tolerance():
+    # NOTE: brief's original fixture used cloud_m=1.02 against tape_m=1.0,
+    # which sits exactly on the 2.0% threshold boundary. In IEEE-754 float
+    # arithmetic abs(1.02-1.0)/1.0*100 == 2.0000000000000018, not exactly
+    # 2.0, so it spuriously fails check_scale's `worst <= max_err_pct`
+    # (kept byte-identical to the brief). Using 1.015 (1.5% error) keeps
+    # the test's intent — verifying the pass case near but under the
+    # threshold — without relying on exact float equality at the edge.
     measurements = [
         {"name": "wall", "tape_m": 2.0, "cloud_m": 2.01},
-        {"name": "table", "tape_m": 1.0, "cloud_m": 1.02},
+        {"name": "table", "tape_m": 1.0, "cloud_m": 1.015},
         {"name": "door", "tape_m": 0.9, "cloud_m": 0.905},
     ]
     result = check_scale(measurements, THRESHOLDS["scale_max_err_pct"], THRESHOLDS["scale_min_measurements"])

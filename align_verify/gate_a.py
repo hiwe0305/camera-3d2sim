@@ -18,10 +18,7 @@ def check_scale(measurements: list[dict], max_err_pct: float, min_measurements: 
         m["err_pct"] = err_pct
         errs.append(err_pct)
     worst = max(errs)
-    # Tiny epsilon guards against float representation noise at the exact
-    # boundary (e.g. abs(1.02 - 1.0) / 1.0 * 100 == 2.0000000000000018 in
-    # binary floating point, not 2.0) without loosening the real threshold.
-    return {"pass": worst <= max_err_pct + 1e-9, "worst_err_pct": worst, "measurements": measurements}
+    return {"pass": worst <= max_err_pct, "worst_err_pct": worst, "measurements": measurements}
 
 
 def check_gravity(residual_deg: float, floor_inlier_ratio: float, max_residual_deg: float,
