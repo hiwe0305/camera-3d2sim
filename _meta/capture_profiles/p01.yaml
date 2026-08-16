@@ -1,0 +1,7 @@
+profile_id: p01
+width: 1280
+height: 720
+fps: 30
+lock_exposure_us: 8000
+max_linear_speed_m_s: 0.3
+max_wall_distance_m: 3.0
