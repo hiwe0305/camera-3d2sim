@@ -1,0 +1,8 @@
+pyrealsense2
+open3d
+numpy
+scipy
+pyyaml
+pupil-apriltags
+pytest
+imageio
