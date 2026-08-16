@@ -10,8 +10,15 @@ def fit_floor_plane(cloud, distance_threshold=0.02, ransac_n=3, num_iterations=2
 
 def gravity_alignment_transform(plane_model: np.ndarray) -> tuple[np.ndarray, float]:
     a, b, c, d = plane_model
-    normal = np.array([a, b, c])
-    normal = normal / np.linalg.norm(normal)
+    norm = np.linalg.norm([a, b, c])
+    normal = np.array([a, b, c]) / norm
+    d = d / norm
+    # Disambiguate the normal's sign by picking the candidate closer to the raw
+    # SLAM frame's own +Z axis. This assumes the SLAM frame is already roughly
+    # "up" (within 90 degrees of true gravity-up): the D435 has no IMU, but its
+    # drift from vision-only odometry is only a few degrees, not an arbitrary
+    # orientation, so the closer-to-raw-Z candidate is always the physically
+    # correct floor normal (pointing away from the floor, into the room).
     if normal[2] < 0:
         normal = -normal
         d = -d

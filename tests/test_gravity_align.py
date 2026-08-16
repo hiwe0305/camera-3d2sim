@@ -36,9 +36,27 @@ def test_apply_transform_flattens_floor_to_z_zero():
     assert np.abs(transformed[:, 2]).max() < 0.01
 
 def test_apply_transform_to_poses_translates_and_rotates():
+    R_T = Rotation.from_euler("z", 90.0, degrees=True)
     T = np.eye(4)
+    T[:3, :3] = R_T.as_matrix()
     T[:3, 3] = [1.0, 0.0, 0.0]
-    poses = [{"timestamp": 0.0, "t": np.array([0.0, 0.0, 0.0]), "q": np.array([0, 0, 0, 1.0])}]
+
+    R_pose = Rotation.from_euler("x", 90.0, degrees=True)
+    poses = [{
+        "timestamp": 0.0,
+        "t": np.array([2.0, 0.0, 0.0]),
+        "q": R_pose.as_quat(),
+    }]
     out = apply_transform_to_poses(T, poses)
-    np.testing.assert_allclose(out[0]["t"], [1.0, 0.0, 0.0])
-    np.testing.assert_allclose(out[0]["q"], [0.0, 0.0, 0.0, 1.0])
+
+    expected_t = R_T.apply([2.0, 0.0, 0.0]) + [1.0, 0.0, 0.0]
+    expected_R = R_T * R_pose  # composed independently of the implementation
+
+    np.testing.assert_allclose(out[0]["t"], expected_t, atol=1e-9)
+    # Quaternions may differ by sign (q and -q represent the same rotation).
+    q_out = out[0]["q"]
+    q_expected = expected_R.as_quat()
+    assert (
+        np.allclose(q_out, q_expected, atol=1e-9)
+        or np.allclose(q_out, -q_expected, atol=1e-9)
+    )
