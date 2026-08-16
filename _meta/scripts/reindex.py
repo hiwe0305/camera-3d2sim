@@ -38,5 +38,6 @@ def render_markdown(catalog: dict) -> str:
 
 def reindex(scenes_root: Path) -> None:
     catalog = build_catalog(scenes_root)
+    (scenes_root / "_meta").mkdir(parents=True, exist_ok=True)
     (scenes_root / "_meta" / "catalog.json").write_text(json.dumps(catalog, indent=2))
     (scenes_root / "_meta" / "catalog.md").write_text(render_markdown(catalog))

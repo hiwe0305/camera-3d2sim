@@ -46,3 +46,11 @@ def test_reindex_writes_catalog_files(tmp_path):
     reindex(tmp_path)
     assert (tmp_path / "_meta" / "catalog.json").exists()
     assert (tmp_path / "_meta" / "catalog.md").exists()
+
+
+def test_reindex_creates_meta_directory_if_missing(tmp_path):
+    _write_manifest(tmp_path, "lab_room_a", "2026-08-12_v01", "APPROVED", 1.2)
+    # Note: NOT creating _meta/ directory, testing that reindex() handles this
+    reindex(tmp_path)
+    assert (tmp_path / "_meta" / "catalog.json").exists()
+    assert (tmp_path / "_meta" / "catalog.md").exists()
