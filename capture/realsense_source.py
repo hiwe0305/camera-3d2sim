@@ -22,8 +22,8 @@ class RealSenseFrameSource:
             color_sensor.set_option(rs.option.exposure, lock_exposure_us)
             exposure_mode = "locked"
 
-        depth_stream = profile.get_stream(rs.stream.depth).as_video_stream_profile()
-        intr = depth_stream.get_intrinsics()
+        color_stream = profile.get_stream(rs.stream.color).as_video_stream_profile()
+        intr = color_stream.get_intrinsics()
         depth_sensor = profile.get_device().first_depth_sensor()
         self.intrinsics = {
             "fx": intr.fx, "fy": intr.fy, "cx": intr.ppx, "cy": intr.ppy,
