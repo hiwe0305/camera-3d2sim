@@ -1,0 +1,20 @@
+gate_a:
+  scale_max_err_pct: 2.0
+  scale_min_measurements: 3
+  gravity_max_residual_deg: 1.0
+  gravity_min_floor_inlier_ratio: 0.60
+  trajectory_max_gap_s: 0.5
+  trajectory_max_p95_angular_vel_deg_s: 30.0
+  trajectory_max_blur_ratio: 0.10
+  coverage_cell_size_m: 1.0
+  coverage_min_angle_spread_deg: 30.0
+gate_b:
+  psnr_min_db: 25.0
+  psnr_warn_db: 22.0
+  ssim_min: 0.80
+  measurement_max_err_pct: 2.0
+gate_c:
+  drop_test_points: 20
+  drop_test_max_height_err_m: 0.03
+  collision_max_hole_m: 0.05
+  min_fps: 30.0
