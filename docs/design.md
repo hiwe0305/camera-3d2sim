@@ -244,6 +244,15 @@ env -u PYTHONPATH .venv/bin/python -m pytest
 Camera D435 cần cổng **USB3** (SuperSpeed) để đạt 1280x720@30fps cho cả color và depth — USB2 giới
 hạn depth 1280x720 xuống còn 6fps. Kiểm tra tốc độ kết nối: `lsusb -t` (tìm dòng `5000M`).
 
+**Isaac Sim standalone cần `LD_LIBRARY_PATH` sạch** (xác nhận 2026-08-17): biến `LD_LIBRARY_PATH` của
+shell trên máy này trỏ vào `/usr/local/cuda/lib64` (CUDA 12.1, từ setup ROS2/dev khác) — nếu để
+nguyên khi chạy `/home/ubuntu/isaacsim/python.sh`, linker sẽ nạp nhầm `libnvJitLink.so.12` bản 12.1
+(thiếu symbol `__nvJitLinkCreate_12_8`) thay vì bản 12.8 mà Isaac Sim đóng gói sẵn, khiến
+`SimulationApp()` crash ngay khi khởi động — không phải lỗi cài đặt Isaac Sim, không cần cài lại
+torch. Luôn `unset LD_LIBRARY_PATH` trước khi gọi `/home/ubuntu/isaacsim/python.sh` (script Python nào
+tự gọi Isaac Sim qua `subprocess` cũng nên tự strip biến này khỏi `env` truyền vào, xem
+`navmesh/occupancy_map.py`).
+
 ## 9. Rủi ro còn mở / cần theo dõi
 
 - **Format .ply khác biệt giữa trainer — ĐÃ GIẢM RỦI RO (2026-08-17)**: rủi ro gốc là dùng nerfstudio
