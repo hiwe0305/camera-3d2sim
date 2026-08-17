@@ -6,3 +6,4 @@ pyyaml
 pupil-apriltags
 pytest
 imageio
+plyfile

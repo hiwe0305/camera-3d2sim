@@ -39,12 +39,17 @@ laptop capture và server train) vẫn giữ làm phương án khi capture ở h
 ### Phase 0 — Spike xác nhận Isaac Sim import (gate go/no-go, làm trước tiên)
 
 Rủi ro lớn nhất tưởng là "Isaac Sim có hỗ trợ Gaussian Splatting không" — thực tế đã hỗ trợ native từ
-bản 6.0 (qua Omniverse NuRec). Việc cần làm: tải một `.ply` Gaussian Splat mẫu công khai → chạy
+bản 6.0 (qua Omniverse NuRec). Việc cần làm: chuẩn bị một `.ply` Gaussian Splat mẫu (tải công khai
+hoặc tự sinh) → chạy
 `ply_to_usd` (công cụ 3DGRUT) → mở `.usdz` kết quả trong Isaac Sim 6.0.1 → xác nhận render đúng,
 không gặp lỗi "layered artifact" đã báo cáo trên forum NVIDIA.
 
-**Kết quả (2026-08-17)**: PASS — xem `spikes/phase0_isaacsim_import/`. Gate mở, có thể triển
-khai `train/`, `navmesh/`, `isaacsim_import/`.
+**Kết quả (2026-08-17)**: PASS trên fixture Gaussian Splat tự sinh (hình cầu tổng hợp, không tải mẫu
+công khai) — xem `spikes/phase0_isaacsim_import/`. Xác nhận pipeline convert + import chạy đúng,
+không gặp lỗi "layered artifact" ở toạ độ gần gốc (bán kính 0.5m). Lưu ý: bug layered-artifact đã biết
+trên forum NVIDIA chỉ được báo cáo ở toạ độ ≥300m từ gốc (do float16 precision) — Phase 0 CHƯA kiểm
+chứng ở quy mô đó; capture thật trong phòng (vài mét) nhiều khả năng vẫn an toàn nhưng chưa test trực
+tiếp. Gate mở, có thể triển khai `train/`, `navmesh/`, `isaacsim_import/`.
 
 ### Pipeline chính (6 bước, sau khi Phase 0 pass)
 
@@ -211,7 +216,7 @@ trong catalog.
 | [_meta/scripts/reindex.py](../_meta/scripts/reindex.py) | mọi máy | sinh catalog.md/json từ manifest/build | Code + test PASS |
 | `train/` (nerfstudio/3DGS) | máy có GPU | convert transforms.json, train, Gate B | Chưa triển khai |
 | `navmesh/` | máy có GPU | ground segmentation, collision mesh, occupancy map | Chưa triển khai |
-| `isaacsim_import/` | máy có GPU | ply→usdz, dựng USD stage, Gate C drop-test | Phase 0: PASS (2026-08-17), sẵn sàng triển khai Gates B+C |
+| `isaacsim_import/` | máy có GPU | ply→usdz, dựng USD stage, Gate C drop-test | Phase 0: PASS (2026-08-17), sẵn sàng triển khai Gate C |
 
 RTAB-Map GUI (xử lý SLAM thủ công theo `_meta/sop_capture.md`) chưa được xác nhận cài/chạy trên máy
 này.
@@ -238,8 +243,9 @@ hạn depth 1280x720 xuống còn 6fps. Kiểm tra tốc độ kết nối: `lsu
 ## 9. Rủi ro còn mở / cần theo dõi
 
 - **Format .ply khác biệt giữa trainer**: `.ply` của splatfacto có layout SH/field khác bản INRIA gốc
-  mà `ply_to_usd` (3DGRUT) mong đợi — cần xác nhận trong Phase 0 dùng trainer nào cho ra format tương
-  thích thẳng.
+  mà `ply_to_usd` (3DGRUT) mong đợi. Phase 0 xác nhận pipeline convert+import chạy đúng với fixture tự
+  sinh (đúng schema 3DGRUT) — vẫn cần xác nhận riêng `.ply` do trainer thật (splatfacto/INRIA) sinh ra
+  có tương thích thẳng không, khi `train/` được triển khai.
 - **Intrinsics drift theo nhiệt độ**: D435 cần calib định kỳ; `calib_id` trong manifest giúp truy vết
   nhưng chưa có quy trình calib tự động.
 - **Weak texture / phản chiếu**: RoboGSim (arXiv:2411.11839) dùng GIM feature matcher trước COLMAP để

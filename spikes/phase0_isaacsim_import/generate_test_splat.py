@@ -25,7 +25,7 @@ def generate_sphere_splat(output_path: Path, n_points: int = 8000, radius: float
     """
     rng = np.random.default_rng(seed=0)
 
-    # Uniform points on a sphere surface (Marsaglia method).
+    # Uniform points on a sphere surface (cylindrical/Archimedes projection: uniform z, then azimuth).
     u = rng.uniform(-1.0, 1.0, size=n_points)
     theta = rng.uniform(0.0, 2 * math.pi, size=n_points)
     xy_radius = np.sqrt(1.0 - u**2)
