@@ -239,7 +239,7 @@ def generate_sphere_splat(output_path: Path, n_points: int = 8000, radius: float
     rgb = np.stack([height_t, np.zeros(n_points), 1.0 - height_t], axis=1).astype(np.float32)
     f_dc = (rgb - 0.5) / SH_C0
 
-    opacity_logit = np.full((n_points, 1), 3.0, dtype=np.float32)  # sigmoid(3.0) ~= 0.953
+    opacity_logit = np.full((n_points, 1), 2.9444, dtype=np.float32)  # logit(0.95); sigmoid(2.9444) ~= 0.95
 
     gaussian_radius_m = 0.015
     scale_log = np.full((n_points, 3), math.log(gaussian_radius_m), dtype=np.float32)
