@@ -66,11 +66,12 @@ D435 (máy có camera)
    ▼
 [3] TRANSFER (rsync/scp nếu khác máy, hoặc bỏ qua nếu cùng máy)
    │
-   ├──▼ [4] TRAIN GSPLAT ── Gate B
-   │      convert → transforms.json, đổi trục OpenCV→OpenGL, TẮT auto_scale_poses/
-   │      center_method/orientation_method của nerfstudio, dùng TSDF cloud làm init,
-   │      freeze camera pose optimizer. Sanity check: render 1 frame ở pose đã biết,
-   │      so khớp ảnh gốc TRƯỚC khi train full.
+   ├──▼ [4] TRAIN GSPLAT (3DGRUT) ── Gate B
+   │      convert capture session → COLMAP-style dataset cho 3DGRUT, đổi trục OpenCV→OpenGL,
+   │      TẮT mọi normalize/auto-scale pose mà 3DGRUT áp dụng mặc định (tương đương
+   │      auto_scale_poses/center_method/orientation_method của nerfstudio — cần khảo sát
+   │      cấu hình 3DGRUT cụ thể, xem §11 Phase 2), freeze camera pose optimizer. Sanity
+   │      check: render 1 frame ở pose đã biết, so khớp ảnh gốc TRƯỚC khi train full.
    │
    └──▼ [5] NAV GEOMETRY (song song, dùng chung mesh đã gravity-align)
           ground plane segmentation + lấp lỗ (Poisson+trim) + lọc nhiễu → collision mesh
@@ -90,9 +91,12 @@ bag-of-words trưởng thành hơn.
 không đảm bảo mặt sàn song song mặt phẳng XY. Bỏ qua → scene nghiêng vài độ trong Isaac Sim (Z-up) →
 robot ảo "trượt dốc", occupancy map méo — lỗi im lặng, chỉ lộ ra khi robot chạy sai.
 
-**Vì sao tắt auto_scale_poses/center_method/orientation_method của nerfstudio**: mặc định bật sẽ
-normalize scene về hộp đơn vị — xoá sạch nỗ lực lấy pose mét thật ở bước 1-2. Train vẫn chạy bình
-thường, chỉ kết quả sai tỉ lệ — lỗi im lặng thứ hai.
+**Vì sao tắt auto-normalize pose khi train**: hầu hết framework GSplat (nerfstudio, và có thể cả
+3DGRUT) mặc định bật normalize scene về hộp đơn vị khi load dataset — xoá sạch nỗ lực lấy pose mét
+thật ở bước 1-2. Train vẫn chạy bình thường, chỉ kết quả sai tỉ lệ — lỗi im lặng thứ hai. **Quyết
+định (2026-08-17)**: dùng 3DGRUT (không phải nerfstudio splatfacto như bản nháp đầu) để train — cùng
+toolchain với `ply_to_usd` đã validate ở Phase 0, tránh rủi ro lệch layout `.ply` giữa 2 trainer khác
+nhau (xem §9). Cấu hình normalize cụ thể của 3DGRUT chưa khảo sát — việc cần làm đầu tiên của `train/`.
 
 ## 4. Data Flywheel — tổ chức dữ liệu
 
@@ -214,7 +218,7 @@ trong catalog.
 | [align_verify/](../align_verify/) | máy có camera | gravity alignment (`gravity_align.py`), AprilTag anchor (`anchor.py`), Gate A (`gate_a.py`) | Code + test PASS. Chưa chạy trên dữ liệu thật |
 | [ingest/](../ingest/) | máy có camera | đóng gói session thành read-only (`package.py`) | Code + test PASS |
 | [_meta/scripts/reindex.py](../_meta/scripts/reindex.py) | mọi máy | sinh catalog.md/json từ manifest/build | Code + test PASS |
-| `train/` (nerfstudio/3DGS) | máy có GPU | convert transforms.json, train, Gate B | Chưa triển khai |
+| `train/` (3DGRUT) | máy có GPU | convert dataset, train, export USD/PLY, Gate B | Chưa triển khai. `~/tools/3dgrut` đã cài + verify ở Phase 0 |
 | `navmesh/` | máy có GPU | ground segmentation, collision mesh, occupancy map | Chưa triển khai |
 | `isaacsim_import/` | máy có GPU | ply→usdz, dựng USD stage, Gate C drop-test | Phase 0: PASS (2026-08-17), sẵn sàng triển khai Gate C |
 
@@ -242,10 +246,11 @@ hạn depth 1280x720 xuống còn 6fps. Kiểm tra tốc độ kết nối: `lsu
 
 ## 9. Rủi ro còn mở / cần theo dõi
 
-- **Format .ply khác biệt giữa trainer**: `.ply` của splatfacto có layout SH/field khác bản INRIA gốc
-  mà `ply_to_usd` (3DGRUT) mong đợi. Phase 0 xác nhận pipeline convert+import chạy đúng với fixture tự
-  sinh (đúng schema 3DGRUT) — vẫn cần xác nhận riêng `.ply` do trainer thật (splatfacto/INRIA) sinh ra
-  có tương thích thẳng không, khi `train/` được triển khai.
+- **Format .ply khác biệt giữa trainer — ĐÃ GIẢM RỦI RO (2026-08-17)**: rủi ro gốc là dùng nerfstudio
+  splatfacto để train rồi convert `.ply` sang USDZ bằng 3DGRUT — 2 toolchain khác nhau, layout SH/field
+  có thể lệch. Đã quyết định dùng 3DGRUT cho cả train lẫn export (§3, §11 Phase 2) — cùng một toolchain
+  nên không còn rủi ro lệch layout `.ply` giữa 2 bên. Rủi ro còn lại: chưa khảo sát cấu hình
+  normalize-pose mặc định của 3DGRUT khi train (xem §11 Phase 2, việc cần làm đầu tiên).
 - **Intrinsics drift theo nhiệt độ**: D435 cần calib định kỳ; `calib_id` trong manifest giúp truy vết
   nhưng chưa có quy trình calib tự động.
 - **Weak texture / phản chiếu**: RoboGSim (arXiv:2411.11839) dùng GIM feature matcher trước COLMAP để
@@ -262,3 +267,132 @@ hạn depth 1280x720 xuống còn 6fps. Kiểm tra tốc độ kết nối: `lsu
 - Isaac ROS / nvblox.
 - Reconstruct robot arm bằng Gaussian Splatting kiểu RoboGSim (kinematic-driven Gaussian theo khớp) —
   robot dùng asset sẵn có của Isaac Sim, không cần dựng bằng GS.
+
+## 11. Lộ trình triển khai tiếp theo (sau Phase 0)
+
+Trạng thái tại 2026-08-17: `capture/`, `align_verify/`, `ingest/`, `reindex.py` đã code + test (mock
+data) xong nhưng **chưa chạy trên dữ liệu thật**. Phase 0 (Isaac Sim import) PASS. `train/`,
+`navmesh/`, `isaacsim_import/` chưa code dòng nào.
+
+### Thứ tự khuyến nghị
+
+```
+Phase 1 (Real Capture)  ─┐
+                          ├─→ Phase 3 (navmesh/) ─┐
+Phase 2 (train/ skeleton)┘                        ├─→ Phase 4 (isaacsim_import/)
+        (bắt đầu song song, không cần chờ Phase 1)─┘
+```
+
+- **Phase 1** và **Phase 2** có thể làm **song song** — Phase 2 (viết code `train/`) không cần chờ có
+  capture thật, dùng dataset công khai của 3DGRUT (MipNeRF360 `garden`/`bonsai`) để phát triển +test
+  script convert/train trước, validate lại bằng dữ liệu thật của Phase 1 sau khi cả hai xong.
+- **Phase 3** (`navmesh/`) chỉ cần mesh đã gravity-align từ Phase 1 (không cần GSplat đã train) — có
+  thể bắt đầu ngay sau Phase 1, chạy song song với Phase 2.
+- **Phase 4** (`isaacsim_import/`) cần input từ cả Phase 2 (GSplat đã train) và Phase 3 (collision
+  mesh + occupancy map) — làm sau cùng, nhưng phần USD-stage-assembly đã được de-risk phần lớn bởi
+  Phase 0 (convert + import đã xác nhận chạy được).
+
+### Phase 1 — Real Capture Session (validate code đã build trên phần cứng thật)
+
+**Mục tiêu**: chạy `capture/` → `align_verify/` → `ingest/` trên một phòng thật, xác nhận toàn bộ code
+đã viết (39 unit test hiện tại đều dùng mock) hoạt động đúng ngoài đời, tạo capture session đầu tiên
+trong flywheel.
+
+**Việc cần làm**:
+1. Cài + xác nhận RTAB-Map GUI chạy được trên máy này (chưa xác nhận — xem §7).
+2. Chuẩn bị vật lý: in/dán AprilTag anchor cố định trong phòng, scale bar 1.000m + checkerboard.
+3. Viết `capture/record.py` CLI entrypoint thật (hiện `record_session()` là hàm thư viện, chưa có
+   script chạy được từ dòng lệnh nối với `RealSenseFrameSource` + `create_capture_session`).
+4. Quay thử theo `_meta/sop_capture.md`, chạy RTAB-Map GUI thủ công theo SOP, export trajectory+cloud.
+5. Chạy `capture/slam_import.py` → `align_verify/gravity_align.py` + `anchor.py` → đo tay 3 khoảng
+   cách → `align_verify/gate_a.py`.
+6. Nếu APPROVED: `ingest/package.py` đóng gói session, `_meta/scripts/reindex.py` cập nhật catalog.
+7. Nếu REJECTED: ghi defect code vào `_meta/defects_log.md` theo taxonomy đã định nghĩa (đây sẽ là
+   dòng đầu tiên thật trong defects_log — hiện file này rỗng/mẫu).
+
+**Rủi ro/quyết định mở**: RTAB-Map GUI chưa xác nhận cài được trên máy này — nên là việc đầu tiên kiểm
+tra, có thể tự nó là một spike nhỏ giống Phase 0 nếu cài đặt gặp trục trặc.
+
+**Gate**: Gate A (đã code, threshold trong `_meta/gates.yaml`).
+
+### Phase 2 — `train/` (3DGRUT)
+
+**Mục tiêu**: convert một capture session thành GSplat đã train, đúng tỉ lệ mét thật, qua Gate B.
+
+**Việc cần làm** (theo đúng tinh thần TDD/simple-first của project):
+1. **Khảo sát cấu hình normalize-pose của 3DGRUT** (việc đầu tiên, chặn mọi thứ sau) — đọc
+   `configs/base_gs.yaml` và `configs/apps/colmap_3dgut.yaml` trong `~/tools/3dgrut`, tìm flag tương
+   đương `auto_scale_poses`/`center_method`/`orientation_method` của nerfstudio, xác nhận tắt được.
+2. `train/convert_session.py`: convert capture session (`raw/rgb`, `slam/trajectory.tum` đã
+   gravity-align) → dataset COLMAP-style mà 3DGRUT đọc được (`configs/dataset/`), đổi trục
+   OpenCV→OpenGL nếu cần, dùng `slam/cloud.ply` (đã align) làm init thay vì để 3DGRUT tự chạy COLMAP
+   SFM từ đầu (SLAM đã có pose, không cần SFM lại — cần xác nhận 3DGRUT hỗ trợ "known poses" input,
+   không phải luôn tự chạy COLMAP).
+3. Sanity check bắt buộc TRƯỚC khi train full: render 1 frame ở pose đã biết bằng model init, so khớp
+   ảnh gốc — bắt lỗi trục/tỉ lệ sớm, đúng nguyên tắc "lỗi im lặng" đã ghi ở §3.
+4. Train (`python -m threedgrut...train.py --config-name apps/colmap_3dgut_mcmc.yaml ...`), với
+   `export_usd.enabled=true` để xuất luôn USD/PLY sau train — tái dùng chính pipeline export đã
+   validate ở Phase 0.
+5. `train/gate_b.py`: đo PSNR/SSIM trên `holdout_frames` (đã tách sẵn lúc capture), đo lại 3 khoảng
+   cách trên splat render vs thước đo tay, kiểm tra floater vùng free-space quanh đường đi robot.
+6. Ghi `build.json` theo schema đã định nghĩa ở §5 (`versions.lock`, `train_config_sha`,
+   `coords{...}`, `metrics{...}`).
+
+**Phát triển sớm không cần chờ Phase 1**: bước 1-4 có thể test bằng dataset công khai
+(`data/mipnerf360/garden`, theo README của 3DGRUT) — không cần capture thật, chỉ cần khi validate
+Gate B cuối cùng mới cần dữ liệu từ Phase 1 (holdout frames, phép đo tay thật).
+
+**Rủi ro mở**: bước 2 (dùng SLAM pose có sẵn thay vì SFM lại) là điểm chưa chắc chắn nhất — 3DGRUT có
+thể mặc định luôn chạy COLMAP; cần khảo sát kỹ trước khi viết code, có thể phải chấp nhận chạy COLMAP
+song song SLAM (tốn thêm thời gian nhưng an toàn hơn) nếu không có đường tắt.
+
+**Gate**: Gate B (threshold có sẵn trong `_meta/gates.yaml`, PSNR ≥25dB warn 22-25 — Phase 0 tham khảo
+paper RoboGSim thấy baseline thật ~31-34dB nên ngưỡng hiện tại khá bảo thủ).
+
+### Phase 3 — `navmesh/`
+
+**Mục tiêu**: từ mesh đã gravity-align (sản phẩm của Phase 1, không cần chờ Phase 2), dựng collision
+mesh sạch + occupancy map 2D cho Isaac Sim.
+
+**Việc cần làm**:
+1. Ground plane segmentation (RANSAC, tái dùng logic đã có trong `align_verify/gravity_align.py` —
+   cân nhắc refactor phần fit-floor-plane thành hàm dùng chung thay vì viết lại).
+2. Lấp lỗ (Poisson reconstruction + trim) trên mesh RTAB-Map, lọc nhiễu.
+3. Gọi Isaac Sim Occupancy Map Generator (built-in, cần xác nhận API/CLI cụ thể — chưa khảo sát) để
+   sinh occupancy map 2D từ collision mesh.
+4. Kiểm tra: max hole area, watertight — theo `nav{watertight, max_hole_area_m2, occ_resolution,
+   free_area_m2}` đã định nghĩa trong `build.json` schema (§5).
+
+**Rủi ro mở**: cách gọi Isaac Sim Occupancy Map Generator từ script (không qua GUI) chưa được khảo
+sát — cần xác nhận có Python API hay chỉ có thao tác GUI trước khi viết plan chi tiết.
+
+**Gate**: một phần của Gate C (watertight + hole area được kiểm tra ở đây, phần drop-test vật lý thuộc
+Phase 4).
+
+### Phase 4 — `isaacsim_import/`
+
+**Mục tiêu**: dựng USD stage hoàn chỉnh (GSplat hiển thị + collision mesh ẩn, cùng gốc toạ độ), chạy
+Gate C.
+
+**Việc cần làm**:
+1. Tái dùng chính xác lệnh `ply_to_usd`/`export_usd` đã validate ở Phase 0 (bao gồm workaround
+   `export_cameras=False` đã ghi trong `spikes/phase0_isaacsim_import/README.md`) để convert output
+   thật của Phase 2.
+2. Dựng USD stage: reference GSplat USD (từ Phase 2) + collision mesh USD (từ Phase 3, set invisible)
+   vào cùng một gốc `T_world_from_slam`/`T_anchor_from_world` — dùng `add_mesh_to_usdz.py` của 3DGRUT
+   (đã thấy trong export README lúc nghiên cứu Phase 0) hoặc dựng USD stage thủ công bằng `pxr` API.
+3. `isaacsim_import/gate_c.py`: physics drop-test script (20 điểm rải sàn, kiểm tra dừng đúng ±3cm) —
+   cần chạy trong Isaac Sim (headless hoặc qua Python API), chưa khảo sát cách tự động hoá tốt nhất.
+4. Cập nhật `environments.usda` tổng + symlink `BEST` theo `env_id` (§3.6 cũ / §4 catalog).
+
+**Rủi ro mở**: tự động hoá physics drop-test trong Isaac Sim (headless) là phần khó nhất — có thể cần
+một spike riêng giống Phase 0 nếu Isaac Sim's scripting API cho việc này chưa rõ.
+
+**Gate**: Gate C đầy đủ (kết hợp phần navmesh ở Phase 3 + drop-test ở đây).
+
+### Gợi ý bước tiếp theo
+
+Trong 2 nhánh song song (Phase 1 / Phase 2), **Phase 1 rẻ hơn và giải toả nhiều ẩn số hơn** — nó xác
+nhận toàn bộ code capture-side đã viết (nhưng chưa test thật) hoạt động đúng, và là input bắt buộc cho
+cả Phase 3 lẫn phần validate cuối của Phase 2. Khuyến nghị viết implementation plan chi tiết
+(TDD, bite-sized) cho Phase 1 trước, dùng `superpowers:writing-plans` giống Phase 0.
