@@ -41,8 +41,10 @@ laptop capture và server train) vẫn giữ làm phương án khi capture ở h
 Rủi ro lớn nhất tưởng là "Isaac Sim có hỗ trợ Gaussian Splatting không" — thực tế đã hỗ trợ native từ
 bản 6.0 (qua Omniverse NuRec). Việc cần làm: tải một `.ply` Gaussian Splat mẫu công khai → chạy
 `ply_to_usd` (công cụ 3DGRUT) → mở `.usdz` kết quả trong Isaac Sim 6.0.1 → xác nhận render đúng,
-không gặp lỗi "layered artifact" đã báo cáo trên forum NVIDIA. **Chưa chạy phase này** — Isaac Sim đã
-sẵn sàng trên máy nên có thể thực hiện ngay.
+không gặp lỗi "layered artifact" đã báo cáo trên forum NVIDIA.
+
+**Kết quả (2026-08-17)**: PASS — xem `spikes/phase0_isaacsim_import/`. Gate mở, có thể triển
+khai `train/`, `navmesh/`, `isaacsim_import/`.
 
 ### Pipeline chính (6 bước, sau khi Phase 0 pass)
 
@@ -209,7 +211,7 @@ trong catalog.
 | [_meta/scripts/reindex.py](../_meta/scripts/reindex.py) | mọi máy | sinh catalog.md/json từ manifest/build | Code + test PASS |
 | `train/` (nerfstudio/3DGS) | máy có GPU | convert transforms.json, train, Gate B | Chưa triển khai |
 | `navmesh/` | máy có GPU | ground segmentation, collision mesh, occupancy map | Chưa triển khai |
-| `isaacsim_import/` | máy có GPU | ply→usdz, dựng USD stage, Gate C drop-test | Chưa triển khai. Isaac Sim 6.0.1 đã chạy được trên máy — sẵn sàng để bắt đầu Phase 0 |
+| `isaacsim_import/` | máy có GPU | ply→usdz, dựng USD stage, Gate C drop-test | Phase 0: PASS (2026-08-17), sẵn sàng triển khai Gates B+C |
 
 RTAB-Map GUI (xử lý SLAM thủ công theo `_meta/sop_capture.md`) chưa được xác nhận cài/chạy trên máy
 này.
